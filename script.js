@@ -8,21 +8,24 @@ const prizeListEl = document.getElementById('prize-list');
 const addPrizeBtn = document.getElementById('add-prize-btn');
 const saveStartBtn = document.getElementById('save-start-btn');
 const resetBtn = document.getElementById('reset-btn');
+const togglePoolBtn = document.getElementById('toggle-pool-btn');
+const shuffleBtn = document.getElementById('shuffle-btn');
+const prevPageBtn = document.getElementById('prev-page-btn');
+const nextPageBtn = document.getElementById('next-page-btn');
+const pageInfoEl = document.getElementById('page-info');
 const poolListEl = document.getElementById('pool-list');
 const remainingCountEl = document.getElementById('remaining-count');
-const scratchCardEl = document.getElementById('scratch-card');
+const scratchCardGrid = document.getElementById('scratch-card-grid');
 const emptyStateEl = document.getElementById('empty-state');
 const gameOverEl = document.getElementById('game-over');
 const drawBtn = document.getElementById('draw-btn');
 const restartBtn = document.getElementById('restart-btn');
-const prizeTextEl = document.getElementById('prize-text');
-const canvas = document.getElementById('scratch-canvas');
-const ctx = canvas.getContext('2d');
-
 // State
 let prizes = [];
-let isDrawing = false;
-let currentPrize = null;
+let activePrizesCount = {}; // Track prizes currently on the board (unrevealed)
+let allCards = []; // Store all generated cards data: { id, prizeName, isRevealed }
+let currentPage = 1;
+let itemsPerPage = 9; // Default, will be adjusted based on screen size ideally, or kept fixed for simplicity
 
 // Initialization
 function init() {
@@ -56,22 +59,28 @@ function bindEvents() {
     drawBtn.addEventListener('click', startScratch);
     restartBtn.addEventListener('click', resetGame);
     
-    // Canvas events
-    canvas.addEventListener('mousedown', startScratching);
-    canvas.addEventListener('mousemove', scratch);
-    canvas.addEventListener('mouseup', stopScratching);
-    canvas.addEventListener('mouseleave', stopScratching);
-    
-    // Touch events for mobile
-    canvas.addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        startScratching(e.touches[0]);
+    togglePoolBtn.addEventListener('click', () => {
+        const summary = document.querySelector('.prizes-summary');
+        if (summary.style.display === 'none') {
+            summary.style.display = 'block';
+            togglePoolBtn.textContent = '👁️ 隐藏奖池';
+        } else {
+            summary.style.display = 'none';
+            togglePoolBtn.textContent = '🙈 显示奖池';
+        }
     });
-    canvas.addEventListener('touchmove', (e) => {
-        e.preventDefault();
-        scratch(e.touches[0]);
+
+    shuffleBtn.addEventListener('click', shuffleCards);
+    prevPageBtn.addEventListener('click', () => renderPage(currentPage - 1));
+    nextPageBtn.addEventListener('click', () => renderPage(currentPage + 1));
+
+    window.addEventListener('resize', () => {
+        const oldItemsPerPage = itemsPerPage;
+        itemsPerPage = window.innerWidth < 600 ? 6 : 12;
+        if (oldItemsPerPage !== itemsPerPage && allCards.length > 0) {
+            renderPage(1);
+        }
     });
-    canvas.addEventListener('touchend', stopScratching);
 }
 
 // --- Setup Logic ---
@@ -80,6 +89,7 @@ function showSetupPanel() {
     setupPanel.style.display = 'block';
     gamePanel.style.display = 'none';
     resetBtn.style.display = 'none';
+    togglePoolBtn.style.display = 'none';
     
     // Pre-fill if we have data (for editing) or ensure at least one empty row
     renderPrizeInputs();
@@ -91,8 +101,9 @@ function addPrizeRow(name = '', count = 1) {
     row.innerHTML = `
         <input type="text" placeholder="奖品名称 (如: 一等奖)" value="${name}">
         <input type="number" min="0" placeholder="数量" value="${count}">
-        <button class="remove-btn" onclick="this.parentElement.remove()">×</button>
+        <button class="remove-btn">×</button>
     `;
+    row.querySelector('.remove-btn').addEventListener('click', () => row.remove());
     prizeListEl.appendChild(row);
 }
 
@@ -129,6 +140,8 @@ function saveAndStart() {
     prizes = newPrizes;
     saveData();
     showGamePanel();
+    // Automatically start the game after saving
+    startScratch();
 }
 
 // --- Game Logic ---
@@ -137,6 +150,7 @@ function showGamePanel() {
     setupPanel.style.display = 'none';
     gamePanel.style.display = 'block';
     resetBtn.style.display = 'block';
+    togglePoolBtn.style.display = 'block';
     
     updatePoolDisplay();
     checkGameState();
@@ -144,30 +158,43 @@ function showGamePanel() {
 
 function checkGameState() {
     const total = getTotalPrizes();
-    remainingCountEl.textContent = total;
+    const allRevealed = allCards.length > 0 && allCards.every(card => card.isRevealed);
 
-    if (total === 0) {
-        scratchCardEl.classList.add('hidden');
-        emptyStateEl.style.display = 'none';
-        gameOverEl.style.display = 'block';
-    } else {
-        gameOverEl.style.display = 'none';
-        // If we are not currently scratching, show the "Start Scratch" button
-        if (scratchCardEl.classList.contains('hidden')) {
+    if (allCards.length === 0) {
+        // Not started yet or reset
+        document.querySelector('.scratch-container-wrapper').style.display = 'none';
+        if (total > 0) {
             emptyStateEl.style.display = 'block';
+            gameOverEl.style.display = 'none';
+        } else {
+            // No prizes configured? Or game over logic handled elsewhere?
+            // If total is 0 and no cards, it's likely Setup mode or Game Over.
+            // But here we assume Game Panel context.
+            emptyStateEl.style.display = 'none';
+            gameOverEl.style.display = 'block';
         }
+    } else if (allRevealed) {
+        // All cards scratched
+        gameOverEl.style.display = 'block';
+        emptyStateEl.style.display = 'none';
+        document.querySelector('.scratch-container-wrapper').style.display = 'none';
+    } else {
+        // Playing
+        gameOverEl.style.display = 'none';
+        emptyStateEl.style.display = 'none';
+        document.querySelector('.scratch-container-wrapper').style.display = 'flex';
     }
 }
 
 function updatePoolDisplay() {
     poolListEl.innerHTML = '';
-    prizes.forEach(p => {
-        if (p.count > 0) {
+    for (const [name, count] of Object.entries(activePrizesCount)) {
+        if (count > 0) {
             const li = document.createElement('li');
-            li.innerHTML = `<span>${p.name}</span> <span>x${p.count}</span>`;
+            li.innerHTML = `<span>${name}</span> <span>x${count}</span>`;
             poolListEl.appendChild(li);
         }
-    });
+    }
 }
 
 function getTotalPrizes() {
@@ -177,135 +204,274 @@ function getTotalPrizes() {
 function startScratch() {
     if (getTotalPrizes() === 0) return;
 
-    // Select Prize
-    const prizeIndex = selectRandomPrize();
-    currentPrize = prizes[prizeIndex];
-    
-    // Update Data
-    prizes[prizeIndex].count--;
-    saveData();
-    updatePoolDisplay();
-    remainingCountEl.textContent = getTotalPrizes();
-
-    // Setup UI
     emptyStateEl.style.display = 'none';
-    scratchCardEl.classList.remove('hidden');
-    prizeTextEl.textContent = currentPrize.name;
-    
-    // Defer canvas drawing to the next frame to ensure its dimensions are calculated
-    requestAnimationFrame(initCanvas);
-}
+    scratchCardGrid.innerHTML = ''; // Clear previous cards
+    activePrizesCount = {}; // Reset active prizes count
+    allCards = []; // Reset cards data
+    currentPage = 1;
 
-function selectRandomPrize() {
-    const total = getTotalPrizes();
-    let random = Math.floor(Math.random() * total);
+    // Set initial items per page
+    itemsPerPage = window.innerWidth < 600 ? 6 : 12;
+
+    // Create a deep copy of prizes for the drawing pool
+    // We use a copy so we don't modify the original configuration (prizes)
+    const drawPool = JSON.parse(JSON.stringify(prizes));
     
-    for (let i = 0; i < prizes.length; i++) {
-        if (prizes[i].count > 0) {
-            if (random < prizes[i].count) {
-                return i;
+    // Helper to get total from pool
+    const getPoolTotal = (pool) => pool.reduce((sum, p) => sum + p.count, 0);
+
+    const prizesToDraw = [];
+    while (getPoolTotal(drawPool) > 0) {
+        const total = getPoolTotal(drawPool);
+        let random = Math.floor(Math.random() * total);
+        let selectedIndex = -1;
+
+        for (let i = 0; i < drawPool.length; i++) {
+            if (drawPool[i].count > 0) {
+                if (random < drawPool[i].count) {
+                    selectedIndex = i;
+                    break;
+                }
+                random -= drawPool[i].count;
             }
-            random -= prizes[i].count;
         }
-    }
-    return -1; // Should not happen
-}
 
-// --- Canvas Logic ---
-
-function initCanvas() {
-    const width = scratchCardEl.offsetWidth;
-    const height = scratchCardEl.offsetHeight;
-    
-    canvas.width = width;
-    canvas.height = height;
-    
-    // Draw a dense pattern on the scratch layer
-    ctx.fillStyle = '#cccccc'; // Scratch layer color
-    ctx.fillRect(0, 0, width, height);
-    
-    ctx.fillStyle = '#b3b3b3';
-    ctx.font = '18px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-
-    for (let y = 20; y < height; y += 40) {
-        for (let x = 30; x < width; x += 60) {
-            ctx.save();
-            ctx.translate(x, y);
-            ctx.rotate((Math.random() - 0.5) * 0.5);
-            ctx.fillText('幸运', 0, 0);
-            ctx.restore();
-        }
-    }
-}
-
-function startScratching(e) {
-    isDrawing = true;
-    scratch(e);
-}
-
-function stopScratching() {
-    isDrawing = false;
-    checkScratchCompletion();
-}
-
-function scratch(e) {
-    if (!isDrawing) return;
-
-    const rect = canvas.getBoundingClientRect();
-    const x = (e.clientX || e.pageX) - rect.left;
-    const y = (e.clientY || e.pageY) - rect.top;
-
-    ctx.globalCompositeOperation = 'destination-out';
-    ctx.beginPath();
-    ctx.arc(x, y, 30, 0, Math.PI * 2); // Increased radius for easier scratching
-    ctx.fill();
-}
-
-function checkScratchCompletion() {
-    // Define the central reveal area (e.g., 60% of the canvas size)
-    const revealWidth = canvas.width * 0.6;
-    const revealHeight = canvas.height * 0.6;
-    const startX = (canvas.width - revealWidth) / 2;
-    const startY = (canvas.height - revealHeight) / 2;
-
-    const imageData = ctx.getImageData(startX, startY, revealWidth, revealHeight);
-    const pixels = imageData.data;
-    let transparentPixels = 0;
-
-    // Check transparency only in the central area
-    for (let i = 3; i < pixels.length; i += 4) {
-        // Check the alpha channel
-        if (pixels[i] < 128) {
-            transparentPixels++;
+        if (selectedIndex !== -1) {
+            drawPool[selectedIndex].count--;
+            prizesToDraw.push(drawPool[selectedIndex].name);
         }
     }
 
-    const totalPixelsInArea = revealWidth * revealHeight;
-    const percentage = (transparentPixels / totalPixelsInArea) * 100;
+    // Generate card data objects
+    prizesToDraw.forEach((prizeName, index) => {
+        allCards.push({
+            id: index,
+            prizeName: prizeName,
+            isRevealed: false
+        });
+        // Initialize count for this prize
+        activePrizesCount[prizeName] = (activePrizesCount[prizeName] || 0) + 1;
+    });
 
-    if (percentage > 60) { // Reveal if 60% of the central area is scratched
-        canvas.style.opacity = '0';
-        canvas.style.transition = 'opacity 0.5s';
-        setTimeout(() => {
-            finishRound();
-        }, 500);
+    // Note: We do NOT save the modified pool to localStorage here.
+    // We keep the original 'prizes' configuration in localStorage.
+    
+    updatePoolDisplay();
+    remainingCountEl.textContent = allCards.length;
+    
+    checkGameState(); // Update visibility state
+    renderPage(1);
+}
+
+function renderPage(page) {
+    const totalPages = Math.ceil(allCards.length / itemsPerPage);
+    if (page < 1 || page > totalPages) return;
+
+    currentPage = page;
+    scratchCardGrid.innerHTML = '';
+    
+    const start = (currentPage - 1) * itemsPerPage;
+    const end = start + itemsPerPage;
+    const pageCards = allCards.slice(start, end);
+
+    pageCards.forEach(cardData => {
+        createScratchCard(cardData);
+    });
+
+    updatePagination(totalPages);
+}
+
+function updatePagination(totalPages) {
+    pageInfoEl.textContent = `第 ${currentPage} / ${totalPages} 页`;
+    prevPageBtn.disabled = currentPage === 1;
+    nextPageBtn.disabled = currentPage === totalPages;
+}
+
+function shuffleCards() {
+    if (allCards.length === 0) return;
+
+    // Fisher-Yates shuffle
+    for (let i = allCards.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [allCards[i], allCards[j]] = [allCards[j], allCards[i]];
+    }
+
+    // Reset to first page after shuffle for better UX
+    renderPage(1);
+}
+
+function playRevealSound() {
+    try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) return;
+        
+        const ctx = new AudioContext();
+        const osc = ctx.createOscillator();
+        const gainNode = ctx.createGain();
+        
+        osc.connect(gainNode);
+        gainNode.connect(ctx.destination);
+        
+        // Simple "Ding" sound
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
+        osc.frequency.exponentialRampToValueAtTime(1046.5, ctx.currentTime + 0.1); // C6
+        
+        gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+        
+        osc.start();
+        osc.stop(ctx.currentTime + 0.5);
+    } catch (e) {
+        console.error("Audio play failed", e);
     }
 }
 
-function finishRound() {
-    // Show a button to continue or just go back to empty state
-    // For simplicity, let's just reset the view after a delay or show a "Continue" button overlay
-    // But since the requirements are simple, let's just wait a bit then go back to 'Start' state if prizes remain.
+function createScratchCard(cardData) {
+    const card = document.createElement('div');
+    card.className = 'scratch-card';
+    if (cardData.isRevealed) {
+        card.classList.add('revealed');
+    }
+
+    const prizeText = document.createElement('div');
+    prizeText.className = 'prize-text';
+    prizeText.textContent = cardData.prizeName;
+    card.appendChild(prizeText);
+
+    // If already revealed, we don't need the canvas or cover
+    if (!cardData.isRevealed) {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        let isDrawing = false;
+        
+        card.appendChild(canvas);
+
+        // Add Cover
+        const cover = document.createElement('div');
+        cover.className = 'card-cover';
+        cover.innerHTML = `
+            <span>🎁</span>
+            <p>点击刮奖</p>
+        `;
+        
+        const removeCover = (e) => {
+            e.stopPropagation(); // Prevent triggering other clicks
+            cover.style.opacity = '0';
+            setTimeout(() => {
+                cover.remove();
+            }, 300);
+        };
+
+        cover.addEventListener('click', removeCover);
+        card.appendChild(cover);
+        
+        const initCanvas = () => {
+            const width = card.offsetWidth;
+            const height = card.offsetHeight;
+            // Check if width/height are valid (might be 0 if hidden or not attached)
+            if (width === 0 || height === 0) return;
+
+            canvas.width = width;
+            canvas.height = height;
+
+            ctx.fillStyle = '#cccccc';
+            ctx.fillRect(0, 0, width, height);
+            
+            ctx.font = '14px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            for (let y = 15; y < height; y += 30) {
+                for (let x = 20; x < width; x += 40) {
+                    ctx.save();
+                    ctx.translate(x, y);
+                    ctx.rotate((Math.random() - 0.5) * 1); 
+                    ctx.fillStyle = Math.random() > 0.5 ? '#b3b3b3' : '#a0a0a0'; 
+                    ctx.fillText('刮', 0, 0);
+                    ctx.restore();
+                }
+            }
+        };
+
+        const scratch = (e) => {
+            if (!isDrawing || cardData.isRevealed) return;
+            const rect = canvas.getBoundingClientRect();
+            const x = (e.clientX || e.pageX) - rect.left;
+            const y = (e.clientY || e.pageY) - rect.top;
+            ctx.globalCompositeOperation = 'destination-out';
+            ctx.beginPath();
+            ctx.arc(x, y, 20, 0, Math.PI * 2);
+            ctx.fill();
+        };
+
+        const checkCompletion = () => {
+            if (cardData.isRevealed) return;
+
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const pixels = imageData.data;
+            let transparentPixels = 0;
+            for (let i = 3; i < pixels.length; i += 4) {
+                if (pixels[i] < 128) {
+                    transparentPixels++;
+                }
+            }
+            if ((transparentPixels / (canvas.width * canvas.height)) > 0.3) {
+                cardData.isRevealed = true; // Update data state
+                canvas.style.opacity = '0';
+                canvas.style.transition = 'opacity 0.5s';
+                
+                // Play sound
+                playRevealSound();
+
+                // Decrement remaining count
+                const currentCount = parseInt(remainingCountEl.textContent);
+                if (!isNaN(currentCount) && currentCount > 0) {
+                    remainingCountEl.textContent = currentCount - 1;
+                }
+                
+                // Update active prizes pool
+                if (activePrizesCount[cardData.prizeName] > 0) {
+                    activePrizesCount[cardData.prizeName]--;
+                    updatePoolDisplay();
+                }
+
+                setTimeout(() => {
+                    card.classList.add('revealed');
+                    // Remove canvas from DOM after animation to save memory? 
+                    // Or keep it hidden. 
+                    // checkGameState is global check, might need adjustment
+                    checkGameState();
+                }, 500);
+            }
+        };
+
+        const startScratching = (e) => { 
+            // Only allow scratching if cover is gone (though cover covers canvas, so events shouldn't reach canvas if cover is there)
+            // But to be safe:
+            if (cover.parentNode) return;
+            
+            isDrawing = true; 
+            scratch(e); 
+        };
+        
+        const stopScratching = () => { if (isDrawing) { isDrawing = false; checkCompletion(); } };
+
+        canvas.addEventListener('mousedown', startScratching);
+        canvas.addEventListener('mousemove', scratch);
+        canvas.addEventListener('mouseup', stopScratching);
+        canvas.addEventListener('mouseleave', stopScratching);
+        canvas.addEventListener('touchstart', (e) => { e.preventDefault(); startScratching(e.touches[0]); });
+        canvas.addEventListener('touchmove', (e) => { e.preventDefault(); scratch(e.touches[0]); });
+        canvas.addEventListener('touchend', stopScratching);
+
+        requestAnimationFrame(initCanvas);
+    }
     
-    setTimeout(() => {
-        scratchCardEl.classList.add('hidden');
-        canvas.style.opacity = '1'; // Reset for next time
-        canvas.style.transition = 'none';
-        checkGameState(); // Will show 'Start' button or 'Game Over'
-    }, 2000); // 2 seconds to view the prize
+    scratchCardGrid.appendChild(card);
 }
+
+
 
 // --- Persistence ---
 
@@ -315,7 +481,10 @@ function saveData() {
 
 function resetGame() {
     if (confirm('确定要重新设置奖品池吗？您可以修改数量或添加新奖品。')) {
-        // Don't clear prizes, just let user edit current state
+        scratchCardGrid.innerHTML = '';
+        allCards = []; // Clear card data
+        activePrizesCount = {}; // Clear active counts
+        currentPage = 1; // Reset page
         showSetupPanel();
         renderPrizeInputs();
     }

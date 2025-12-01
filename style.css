@@ -20,21 +20,18 @@ body {
     color: var(--text-color);
     line-height: 1.6;
     display: flex;
-    justify-content: center;
-    min-height: 100vh;
-    padding: 20px;
+    height: 100vh;
+    margin: 0;
 }
 
 .container {
     width: 100%;
-    max-width: 480px;
     background: var(--card-bg);
     padding: 24px;
-    border-radius: var(--border-radius);
-    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
     display: flex;
     flex-direction: column;
     gap: 20px;
+    height: 100%;
 }
 
 header {
@@ -43,6 +40,11 @@ header {
     align-items: center;
     border-bottom: 1px solid #eee;
     padding-bottom: 16px;
+}
+
+.header-actions {
+    display: flex;
+    gap: 10px;
 }
 
 h1 {
@@ -116,20 +118,109 @@ h2 {
     font-size: 14px;
 }
 
-.scratch-container {
-    position: relative;
-    width: 100%;
-    height: 200px;
-    background: #eee;
-    border-radius: var(--border-radius);
-    overflow: hidden;
-    margin-bottom: 24px;
+/* Game Panel Layout */
+.scratch-container-wrapper {
     display: flex;
-    align-items: center;
-    justify-content: center;
+    flex-direction: column;
+    gap: 10px;
+    flex: 1;
+    min-height: 0; /* Crucial for nested flex scrolling/sizing */
+    position: relative;
 }
 
-#scratch-card {
+.toolbar {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.small-btn {
+    font-size: 12px;
+    padding: 6px 12px;
+}
+
+/* Grid Layout */
+.scratch-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); /* Increased from 160px */
+    grid-auto-rows: max-content;
+    gap: 16px; /* Increased gap */
+    width: 100%;
+    flex: 1;
+    overflow: hidden;
+    align-content: start;
+}
+
+.scratch-card {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1.4; /* Slightly squarer */
+    background: #fff;
+    border-radius: var(--border-radius);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    overflow: hidden;
+    transition: transform 0.2s;
+    border: 1px solid #eee;
+    cursor: pointer;
+}
+
+.card-cover {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 99%, #fecfef 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    transition: opacity 0.3s ease;
+    cursor: pointer;
+}
+
+.card-cover span {
+    font-size: 40px;
+    margin-bottom: 10px;
+}
+
+.card-cover p {
+    color: #fff;
+    font-weight: bold;
+    font-size: 18px;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+
+.scratch-card canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 5;
+    cursor: crosshair;
+}
+
+/* Pagination */
+.pagination {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 8px;
+    border-top: 1px solid #eee;
+}
+
+#page-info {
+    font-size: 14px;
+    color: #666;
+}
+
+.scratch-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+}
+
+.scratch-card .prize-text {
     position: absolute;
     top: 0;
     left: 0;
@@ -138,18 +229,21 @@ h2 {
     display: flex;
     align-items: center;
     justify-content: center;
-}
-
-.prize-text {
-    font-size: 28px;
+    font-size: 18px;
     font-weight: bold;
     color: var(--primary-color);
+    padding: 10px;
     text-align: center;
-    padding: 20px;
     z-index: 1;
+    /* Removed opacity: 0 so text is visible through scratched areas */
 }
 
-canvas {
+.scratch-card.revealed .prize-text {
+    /* Optional: add a subtle scale effect when fully revealed if desired, 
+       but for now we just keep it simple as requested */
+}
+
+.scratch-card canvas {
     position: absolute;
     top: 0;
     left: 0;
@@ -157,12 +251,18 @@ canvas {
     height: 100%;
     z-index: 2;
     cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="gray" opacity="0.5"/></svg>') 12 12, auto;
+    transition: opacity 0.5s;
 }
 
 .empty-state {
     text-align: center;
     width: 100%;
-    padding: 20px;
+    padding: 40px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
 }
 
 .hidden {

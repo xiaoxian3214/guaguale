@@ -10,7 +10,10 @@
     <div class="container">
         <header>
             <h1>幸运刮刮乐</h1>
-            <button id="reset-btn" class="secondary-btn" style="display: none;">⚙️ 重设奖品</button>
+            <div class="header-actions">
+                <button id="toggle-pool-btn" class="secondary-btn" style="display: none;">👁️ 隐藏奖池</button>
+                <button id="reset-btn" class="secondary-btn" style="display: none;">⚙️ 重设奖品</button>
+            </div>
         </header>
 
         <!-- 设置区域 -->
@@ -32,12 +35,18 @@
                 <span>剩余奖券: <strong id="remaining-count">0</strong></span>
             </div>
             
-            <div class="scratch-container">
-                <div id="scratch-card" class="hidden">
-                    <div class="prize-text" id="prize-text">???</div>
-                    <canvas id="scratch-canvas"></canvas>
+            <div class="scratch-container-wrapper">
+                <div class="toolbar">
+                    <button id="shuffle-btn" class="outline-btn small-btn">🔀 打乱卡片</button>
                 </div>
-                <div id="empty-state" class="empty-state">
+                <div id="scratch-card-grid" class="scratch-grid"></div>
+                <div class="pagination">
+                    <button id="prev-page-btn" class="secondary-btn" disabled>⬅️ 上一页</button>
+                    <span id="page-info">第 1 / 1 页</span>
+                    <button id="next-page-btn" class="secondary-btn" disabled>下一页 ➡️</button>
+                </div>
+            </div>
+            <div id="empty-state" class="empty-state">
                     <p>🎉 祝你好运！</p>
                     <button id="draw-btn" class="primary-btn-large">开始刮奖</button>
                 </div>
