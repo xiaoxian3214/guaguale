@@ -1,0 +1,255 @@
+:root {
+    --primary-color: #e74c3c;
+    --primary-hover: #c0392b;
+    --secondary-color: #f1c40f;
+    --text-color: #333;
+    --bg-color: #f9f9f9;
+    --card-bg: #fff;
+    --border-radius: 12px;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    line-height: 1.6;
+    display: flex;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 20px;
+}
+
+.container {
+    width: 100%;
+    max-width: 480px;
+    background: var(--card-bg);
+    padding: 24px;
+    border-radius: var(--border-radius);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 16px;
+}
+
+h1 {
+    font-size: 24px;
+    color: var(--primary-color);
+}
+
+h2 {
+    font-size: 18px;
+    margin-bottom: 12px;
+}
+
+.panel {
+    animation: fadeIn 0.3s ease;
+}
+
+/* Setup Panel */
+.hint {
+    color: #666;
+    font-size: 14px;
+    margin-bottom: 16px;
+}
+
+.prize-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.prize-row input[type="text"] {
+    flex: 2;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+}
+
+.prize-row input[type="number"] {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+}
+
+.remove-btn {
+    background: none;
+    border: none;
+    color: #999;
+    cursor: pointer;
+    font-size: 18px;
+}
+
+.remove-btn:hover {
+    color: var(--primary-color);
+}
+
+.setup-actions {
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* Game Panel */
+.status-bar {
+    display: flex;
+    justify-content: space-between;
+    background: #f5f5f5;
+    padding: 10px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    font-size: 14px;
+}
+
+.scratch-container {
+    position: relative;
+    width: 100%;
+    height: 200px;
+    background: #eee;
+    border-radius: var(--border-radius);
+    overflow: hidden;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#scratch-card {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.prize-text {
+    font-size: 28px;
+    font-weight: bold;
+    color: var(--primary-color);
+    text-align: center;
+    padding: 20px;
+    z-index: 1;
+}
+
+canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 2;
+    cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="gray" opacity="0.5"/></svg>') 12 12, auto;
+}
+
+.empty-state {
+    text-align: center;
+    width: 100%;
+    padding: 20px;
+}
+
+.hidden {
+    display: none !important;
+}
+
+.prizes-summary {
+    background: #fff8f8;
+    border: 1px solid #ffebeb;
+    padding: 16px;
+    border-radius: 8px;
+}
+
+.prizes-summary h3 {
+    font-size: 16px;
+    margin-bottom: 10px;
+    color: #555;
+}
+
+#pool-list {
+    list-style: none;
+    font-size: 14px;
+}
+
+#pool-list li {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+    border-bottom: 1px dashed #eee;
+}
+
+#pool-list li:last-child {
+    border-bottom: none;
+}
+
+/* Buttons */
+button {
+    cursor: pointer;
+    font-size: 16px;
+    transition: all 0.2s;
+}
+
+.primary-btn, .primary-btn-large {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 12px;
+    font-weight: bold;
+}
+
+.primary-btn:hover, .primary-btn-large:hover {
+    background-color: var(--primary-hover);
+}
+
+.primary-btn-large {
+    font-size: 18px;
+    padding: 12px 32px;
+}
+
+.outline-btn {
+    background: transparent;
+    border: 1px solid #ccc;
+    color: #666;
+    border-radius: 6px;
+    padding: 10px;
+}
+
+.outline-btn:hover {
+    border-color: #999;
+    color: #333;
+}
+
+.secondary-btn {
+    background: none;
+    border: none;
+    color: #666;
+    font-size: 14px;
+    padding: 4px 8px;
+}
+
+.secondary-btn:hover {
+    background: #f0f0f0;
+    border-radius: 4px;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
