@@ -32,6 +32,7 @@ body {
     flex-direction: column;
     gap: 20px;
     height: 100%;
+    position: relative; /* Ensure positioning context */
 }
 
 header {
@@ -219,6 +220,22 @@ h2 {
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(0,0,0,0.12);
 }
+
+.app-footer {
+    text-align: center;
+    padding: 12px 0;
+    color: #999;
+    font-size: 12px;
+    border-top: 1px solid #eee;
+    margin-top: auto;
+    background-color: #fff;
+    /* Absolute positioning to span full width regardless of parent padding */
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+}
+
 
 .scratch-card .prize-text {
     position: absolute;
