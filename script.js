@@ -76,11 +76,35 @@ function bindEvents() {
 
     window.addEventListener('resize', () => {
         const oldItemsPerPage = itemsPerPage;
-        itemsPerPage = window.innerWidth < 600 ? 6 : 12;
+        itemsPerPage = updateItemsPerPage();
         if (oldItemsPerPage !== itemsPerPage && allCards.length > 0) {
             renderPage(1);
         }
     });
+}
+
+function updateItemsPerPage() {
+    const grid = scratchCardGrid;
+    const wrapper = grid.parentElement;
+
+    if (!wrapper || wrapper.offsetParent === null || wrapper.offsetWidth === 0) {
+        return 12; // Default if the container is not visible
+    }
+
+    const gridWidth = wrapper.offsetWidth;
+    const cardMinWidth = 220; // from CSS
+    const gap = 16; // from CSS
+
+    // 1. Calculate how many columns can fit
+    const columns = Math.max(1, Math.floor((gridWidth + gap) / (cardMinWidth + gap)));
+
+    // 2. Use a fixed number of rows for predictability, as requested.
+    const rowsPerPage = 3;
+
+    // 3. Items per page is columns * rows, ensuring full rows.
+    const newItemsPerPage = columns * rowsPerPage;
+
+    return Math.max(1, newItemsPerPage);
 }
 
 // --- Setup Logic ---
@@ -211,7 +235,7 @@ function startScratch() {
     currentPage = 1;
 
     // Set initial items per page
-    itemsPerPage = window.innerWidth < 600 ? 6 : 12;
+    itemsPerPage = updateItemsPerPage();
 
     // Create a deep copy of prizes for the drawing pool
     // We use a copy so we don't modify the original configuration (prizes)
@@ -259,8 +283,14 @@ function startScratch() {
     updatePoolDisplay();
     remainingCountEl.textContent = allCards.length;
     
-    checkGameState(); // Update visibility state
-    renderPage(1);
+    checkGameState(); // This makes the grid container visible
+
+    // Defer the rest of the logic to allow the DOM to update
+    requestAnimationFrame(() => {
+        // Now that the container is visible, calculate items per page
+        itemsPerPage = updateItemsPerPage();
+        renderPage(1);
+    });
 }
 
 function renderPage(page) {
@@ -401,7 +431,7 @@ function createScratchCard(cardData) {
             const y = (e.clientY || e.pageY) - rect.top;
             ctx.globalCompositeOperation = 'destination-out';
             ctx.beginPath();
-            ctx.arc(x, y, 20, 0, Math.PI * 2);
+            ctx.arc(x, y, 30, 0, Math.PI * 2);
             ctx.fill();
         };
 
@@ -416,7 +446,7 @@ function createScratchCard(cardData) {
                     transparentPixels++;
                 }
             }
-            if ((transparentPixels / (canvas.width * canvas.height)) > 0.3) {
+            if ((transparentPixels / (canvas.width * canvas.height)) > 0.25) {
                 cardData.isRevealed = true; // Update data state
                 canvas.style.opacity = '0';
                 canvas.style.transition = 'opacity 0.5s';
