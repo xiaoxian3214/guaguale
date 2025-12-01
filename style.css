@@ -132,6 +132,7 @@ h2 {
 .toolbar {
     display: flex;
     justify-content: flex-end;
+    gap: 6px;
 }
 
 .small-btn {
@@ -351,6 +352,12 @@ button {
 .outline-btn:hover {
     border-color: #999;
     color: #333;
+}
+
+.outline-btn.active {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+    background-color: #fff8f8;
 }
 
 .secondary-btn {
